@@ -129,6 +129,7 @@ class LMDrawLabel(QLabel):
 
     def setPen(self, pen:QPen):
         self.__pen = pen
+        self.__pen.setCapStyle(Qt.RoundCap)
 
     def getPen(self):
         return self.__pen

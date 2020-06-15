@@ -3,11 +3,14 @@ import sys
 
 import yaml
 from PyQt5.QtCore import QRect, Qt
+from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QListWidget, QListWidgetItem
 
 from utils.LabelMaker import LMDrawLabel
 
 from utils.QtFilUtils import choose_dir
+from utils.UiUtils import get_cursor
+
 
 class Main(QMainWindow):
     def __init__(self):
@@ -17,6 +20,7 @@ class Main(QMainWindow):
         self.dest_dir = None
         self.initUI()
         self.cwd = os.getcwd()
+        self.current_item = None
 
     def initUI(self):
         self.resize(1366, 768)
@@ -25,7 +29,7 @@ class Main(QMainWindow):
         self.lb.setGeometry(QRect(20, 30, 1024, 700))
         self.lb.show_image('images/lena.png')
         self.__init_menu()
-        self.lb.setCursor(Qt.CrossCursor)
+        #self.lb.setCursor()
 
         self.img_list_widget = QListWidget(self)
         self.img_list_widget.itemClicked.connect(self.slot_open_img_item)
@@ -38,6 +42,7 @@ class Main(QMainWindow):
                                    )
         self.img_list_widget.setGeometry(1050,20, 316, 700)
         self.__load_config("./cfg.yaml")
+        self.lb.setCursor(get_cursor(5))
         self.statusBar().showMessage(f"已就绪...")
         self.show()
 
@@ -65,7 +70,11 @@ class Main(QMainWindow):
     def __load_config(self, cfg_file="./cfg.yaml"):
         if not os.path.isfile(cfg_file):
             return
-        cfg = yaml.load(cfg_file)
+        with open(cfg_file) as fd:
+            try:
+                cfg = yaml.load(fd, Loader=yaml.FullLoader)
+            except:
+                cfg = yaml.load(fd)
         if "dest" in cfg:
             if os.path.isdir(cfg["dest"]):
                 self.dest_dir = cfg["dest"]
@@ -138,6 +147,7 @@ class Main(QMainWindow):
     def slot_open_img_item(self, item):
         file_choosed = os.path.join(self.src_dir, item.text())
         self.statusBar().showMessage(f"打开文件{file_choosed}")
+        self.current_item = item
         self.lb.show_image(file_choosed)
 
     def slot_open_file(self):
@@ -164,16 +174,22 @@ class Main(QMainWindow):
         self.files = files
 
     def slot_save_as(self):
-        file_choosed, filetype = QFileDialog.getSaveFileName(self,
-                                                                "文件保存",
-                                                                self.cwd,  # 起始路径
-                                                                "jpeg (*.jpg *.jpeg);;png (*.png);;bmp (*.bmp)")
-
+        if (self.current_item is not None) or (self.dest_dir is None) or (not os.path.isdir(self.dest_dir)):
+            file_choosed, filetype = QFileDialog.getSaveFileName(self,
+                                                                    "文件保存",
+                                                                    self.cwd,  # 起始路径
+                                                                    "jpeg (*.jpg *.jpeg);;png (*.png);;bmp (*.bmp)")
+        else:
+            file_choosed = os.path.join(self.dest_dir, self.current_item.text())
         if file_choosed == "":
             self.statusBar().showMessage("未保存")
             return []
         self.lb.save_result(file_choosed)
         self.statusBar().showMessage(f"文件{file_choosed}保存成功")
+        if self.current_item is not None:
+            txt = self.current_item.text()
+            if "*" not in txt:
+                self.current_item.setText(f"{txt} *")
 
     def slot_crop_begin(self):
         self.statusBar().showMessage(f"剪裁模式")
@@ -191,12 +207,16 @@ class Main(QMainWindow):
         pen = self.lb.getPen()
         w = pen.width() + 1
         pen.setWidth(w)
+        cursor = get_cursor(w)
+        self.lb.setCursor(cursor)
         self.lb.setPen(pen)
 
     def slot_slim_more(self):
         pen = self.lb.getPen()
         w = max(0, pen.width() -1)
         pen.setWidth(w)
+        cursor = get_cursor(w)
+        self.lb.setCursor(cursor)
         self.lb.setPen(pen)
 
 if __name__ == "__main__":

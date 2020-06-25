@@ -4,6 +4,8 @@ from PyQt5.QtCore import Qt, QPoint, QRectF
 from PyQt5.QtGui import QPainter, QImage, QPixmap, QPen, QColor
 from PyQt5.QtWidgets import QLabel
 
+from utils.common import cv_load_as_qim
+
 
 class CVImageWrapper:
     def __init__(self):
@@ -61,8 +63,17 @@ class QTImageWrapper:
             self.ori_img = src
         if self.ori_img is None:
             return None
+
+
         self.im_size = self.ori_img.size()
         h, w= self.im_size.height(), self.im_size.width()
+        if h == 0 or w == 0:
+            self.ori_img = cv_load_as_qim(src)
+            self.im_size = self.ori_img.size()
+            h, w = self.im_size.height(), self.im_size.width()
+        if h == 0 or w == 0:
+            return None
+
         ratio = max(h/self.win_h, w/self.win_w)
         h = h / ratio
         w = w / ratio
@@ -83,15 +94,21 @@ class QTImageWrapper:
 
 
     def save_result(self, mask, dest):
+        """分开存储会灵活些"""
         h = self.im_size.height()
         w = self.im_size.width()
-        self.result = QImage(2*w, h, QImage.Format_RGB32)       # 这个result一定要设置为class的内部成员，不然程序可能会在这步之后异常退出
+        #self.result = QImage(2*w, h, QImage.Format_RGB32)       # 这个result一定要设置为class的内部成员，不然程序可能会在这步之后异常退出
         mask = mask.convertToFormat(QImage.Format_RGB32)
         mask = mask.scaled(w,h)
-        painter = QPainter(self.result)
-        painter.drawImage(0, 0, self.ori_img)
-        painter.drawImage(w, 0, mask)
-        self.result.save(dest)
+        surf = dest.split(".")[-1]
+        len_surf = len(surf)
+        mask_f = f"{dest[:-4]}_mask.{surf}"
+        mask.save(mask_f)
+        self.ori_img.save(dest)
+        #painter = QPainter(self.result)
+        #painter.drawImage(0, 0, self.ori_img)
+        #painter.drawImage(w, 0, mask)
+        #self.result.save(dest)
 
 class LMDrawLabel(QLabel):
     DRAW = 0
@@ -113,8 +130,11 @@ class LMDrawLabel(QLabel):
     def show_image(self, src):
         self.im_wrap.set_shape(self.width(), self.height())
         image = self.im_wrap.load_image(src)
+        if image is None:
+            return False
         self.__show_image(image)
         self.update()
+        return True
 
     def __show_image(self, image):
         self.bg = QPixmap.fromImage(image)

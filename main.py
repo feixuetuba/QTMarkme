@@ -80,6 +80,7 @@ class Main(QMainWindow):
                 self.dest_dir = cfg["dest"]
 
         if "src" in cfg:
+            print(f"load src:{cfg['src']}")
             if os.path.isdir(cfg["src"]):
                 self.load_dir(cfg["src"])
 
@@ -108,8 +109,8 @@ class Main(QMainWindow):
             self.dest_dir = None
 
         menus = [
-            ("Thick more", "Ctrl+Shift+="),
-            ("Slim more", "Ctrl+-"),
+            ("Thick more", "]"),
+            ("Slim more", "["),
         ]
 
         for menu, shortcut in menus:
@@ -145,10 +146,13 @@ class Main(QMainWindow):
         self.statusBar().showMessage("加载完成")
 
     def slot_open_img_item(self, item):
-        file_choosed = os.path.join(self.src_dir, item.text())
+        text = item.text()
+        text = text.replace(" *", "")
+        file_choosed = os.path.join(self.src_dir, text)
         self.statusBar().showMessage(f"打开文件{file_choosed}")
         self.current_item = item
-        self.lb.show_image(file_choosed)
+        if not self.lb.show_image(file_choosed):
+            self.statusBar().showMessage(f"打开文件{file_choosed}失败")
 
     def slot_open_file(self):
         file_choosed, file_type = QFileDialog.getOpenFileName(self,
@@ -174,13 +178,16 @@ class Main(QMainWindow):
         self.files = files
 
     def slot_save_as(self):
-        if (self.current_item is not None) or (self.dest_dir is None) or (not os.path.isdir(self.dest_dir)):
+        if (self.current_item is None):
+            return
+        if (self.dest_dir is None) or (not os.path.isdir(self.dest_dir)):
             file_choosed, filetype = QFileDialog.getSaveFileName(self,
                                                                     "文件保存",
                                                                     self.cwd,  # 起始路径
                                                                     "jpeg (*.jpg *.jpeg);;png (*.png);;bmp (*.bmp)")
         else:
-            file_choosed = os.path.join(self.dest_dir, self.current_item.text())
+            text = self.current_item.text().replace(" *", "")
+            file_choosed = os.path.join(self.dest_dir, text)
         if file_choosed == "":
             self.statusBar().showMessage("未保存")
             return []
